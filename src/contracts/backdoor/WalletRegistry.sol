@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "solady/src/auth/Ownable.sol";
 import "solady/src/utils/SafeTransferLib.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
+import "@gnosis.pm/safe-contracts/contracts/Safe.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/IProxyCreationCallback.sol";
 
 /**
@@ -65,11 +65,9 @@ contract WalletRegistry is IProxyCreationCallback, Ownable {
      * @notice Function executed when user creates a Gnosis Safe wallet via GnosisSafeProxyFactory::createProxyWithCallback
      *          setting the registry's address as the callback.
      */
-    function proxyCreated(GnosisSafeProxy proxy, address singleton, bytes calldata initializer, uint256)
-        external
-        override
-    {
-        if (token.balanceOf(address(this)) < PAYMENT_AMOUNT) { // fail early
+    function proxyCreated(SafeProxy proxy, address singleton, bytes calldata initializer, uint256) external override {
+        if (token.balanceOf(address(this)) < PAYMENT_AMOUNT) {
+            // fail early
             revert NotEnoughFunds();
         }
 
@@ -85,17 +83,17 @@ contract WalletRegistry is IProxyCreationCallback, Ownable {
         }
 
         // Ensure initial calldata was a call to `GnosisSafe::setup`
-        if (bytes4(initializer[:4]) != GnosisSafe.setup.selector) {
+        if (bytes4(initializer[:4]) != Safe.setup.selector) {
             revert InvalidInitialization();
         }
 
         // Ensure wallet initialization is the expected
-        uint256 threshold = GnosisSafe(walletAddress).getThreshold();
+        uint256 threshold = Safe(walletAddress).getThreshold();
         if (threshold != EXPECTED_THRESHOLD) {
             revert InvalidThreshold(threshold);
         }
 
-        address[] memory owners = GnosisSafe(walletAddress).getOwners();
+        address[] memory owners = Safe(walletAddress).getOwners();
         if (owners.length != EXPECTED_OWNERS_COUNT) {
             revert InvalidOwnersCount(owners.length);
         }
@@ -110,8 +108,9 @@ contract WalletRegistry is IProxyCreationCallback, Ownable {
         }
 
         address fallbackManager = _getFallbackManager(walletAddress);
-        if (fallbackManager != address(0))
+        if (fallbackManager != address(0)) {
             revert InvalidFallbackManager(fallbackManager);
+        }
 
         // Remove owner as beneficiary
         beneficiaries[walletOwner] = false;
@@ -125,11 +124,7 @@ contract WalletRegistry is IProxyCreationCallback, Ownable {
 
     function _getFallbackManager(address payable wallet) private view returns (address) {
         return abi.decode(
-            GnosisSafe(wallet).getStorageAt(
-                uint256(keccak256("fallback_manager.handler.address")),
-                0x20
-            ),
-            (address)
+            Safe(wallet).getStorageAt(uint256(keccak256("fallback_manager.handler.address")), 0x20), (address)
         );
     }
 }

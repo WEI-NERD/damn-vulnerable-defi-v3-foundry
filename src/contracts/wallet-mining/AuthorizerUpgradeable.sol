@@ -35,10 +35,10 @@ contract AuthorizerUpgradeable is Initializable, OwnableUpgradeable, UUPSUpgrade
         return wards[usr][aim] == 1;
     }
 
-    function upgradeToAndCall(address imp, bytes memory wat) external payable override {
+    function upgradeToAndCall(address imp, bytes memory wat) public payable override {
         _authorizeUpgrade(imp);
         _upgradeToAndCallUUPS(imp, wat, true);
     }
 
-    function _authorizeUpgrade(address imp) internal override onlyOwner {}
+    function _authorizeUpgrade(address imp) internal override onlyOwner { }
 }
